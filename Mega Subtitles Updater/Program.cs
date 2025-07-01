@@ -27,9 +27,11 @@ namespace Mega_Subtitles_Updater
                     case "-?": // Show help message
                     case "--help":
                         ShowHelp();
+                        Thread.Sleep(500); // Delay
                         return;
                     default:
                         WriteLog($"Unknown argument: {args[i]}");
+                        Thread.Sleep(500); // Delay
                         return;
                 }
             }
@@ -52,9 +54,7 @@ namespace Mega_Subtitles_Updater
                         File.Delete(input); // Delete the ZIP file if specified
                         WriteLog($"Deleted ZIP file: {input}");
                     }
-
                     WriteLog($"Extraction completed to: {output}");
-
                 }
                 else
                 {
@@ -81,6 +81,7 @@ namespace Mega_Subtitles_Updater
                 WriteLog("No action specified.");
                 ShowHelp();
             }
+            Thread.Sleep(1000); // Delay
         }
 
         static void ShowHelp() // Display help information
@@ -93,7 +94,7 @@ namespace Mega_Subtitles_Updater
                               "  -i <input>  Specify input file or folder\n" +
                               "  -o <output> Specify output file or folder\n" +
                               "  -r <runApp> Run the specified application after extraction\n" +
-                              "  -? or --help Show this help message";
+                              "  -? or --help Show this help message\n";
             WriteLog(helpMessage);
         }
 
