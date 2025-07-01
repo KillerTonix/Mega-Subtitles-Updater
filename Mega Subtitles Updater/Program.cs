@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
 using System.IO.Compression;
 
 namespace Mega_Subtitles_Updater
@@ -7,54 +9,99 @@ namespace Mega_Subtitles_Updater
     {
         static void Main(string[] args)
         {
-            bool extract = false; // Flag to indicate if we are extracting files
-            bool compress = false; // Flag to indicate if we are compressing files
-            bool deleteZip = false; // Flag to indicate if we should delete the ZIP file after extraction
-            string? input = null; // Input file or directory for compression or extraction
-            string? output = null; // Output file or directory for the ZIP archive
-            string? runApp = null;  // Application to run after extraction, if specified
+            bool extract = false;
+            bool compress = false;
+            bool deleteZip = false;
+            string? input = null;
+            string? output = null;
+            string? runApp = null;
 
             for (int i = 0; i < args.Length; i++)
             {
-                switch (args[i].Trim().ToLower()) // Handle command-line arguments
+                string arg = args[i].Trim().ToLower();
+
+                switch (arg)
                 {
-                    case "-e": extract = true; break; // Option to extract files from a ZIP archive
-                    case "-c": compress = true; break; // Option to compress a folder into a ZIP archive
-                    case "-d": deleteZip = true; break; // Option to delete the ZIP file after extraction                   
-                    case "-i": if (i + 1 < args.Length) input = args[++i]; break; // Input file or directory for compression or extraction
-                    case "-o": if (i + 1 < args.Length) output = args[++i]; break; // Output file or directory for the ZIP archive
-                    case "-r": if (i + 1 < args.Length) runApp = args[++i]; break; // Application to run after extraction, if specified
-                    case "-?": // Show help message
+                    case "-e": extract = true; break;
+                    case "-c": compress = true; break;
+                    case "-d": deleteZip = true; break;
+                    case "-i":
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                            input = args[++i];
+                        else
+                            WriteLog("Missing or invalid value for -i");
+                        break;
+                    case "-o":
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                            output = args[++i];
+                        else
+                            WriteLog("Missing or invalid value for -o");
+                        break;
+                    case "-r":
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                            runApp = args[++i];                        
+                        break;
+                    case "-?":
                     case "--help":
                         ShowHelp();
-                        Thread.Sleep(500); // Delay
                         return;
                     default:
                         WriteLog($"Unknown argument: {args[i]}");
-                        Thread.Sleep(500); // Delay
                         return;
                 }
             }
 
-            if (extract) // Check if we need to extract files
+            // Prevent using both extract and compress
+            if (extract && compress)
+            {
+                WriteLog("Cannot use -e (extract) and -c (compress) at the same time.");
+                ShowHelp();
+                return;
+            }
+
+            if (extract)
             {
                 if (File.Exists(input) && !string.IsNullOrEmpty(output))
                 {
                     WriteLog("Extracting...");
-                    ZipFile.ExtractToDirectory(input, output, true);
-
-                    if (!string.IsNullOrEmpty(runApp) && File.Exists(runApp))
+                    try
                     {
-                        Process.Start(Path.Combine(output, runApp));
-                        WriteLog($"Running application: {runApp}");
-                    }
+                        ZipFile.ExtractToDirectory(input, output, true);
+                        Thread.Sleep(800); // Delay
 
-                    if (deleteZip && File.Exists(input))
-                    {
-                        File.Delete(input); // Delete the ZIP file if specified
-                        WriteLog($"Deleted ZIP file: {input}");
+                        WriteLog($"Extraction completed to: {output}");
+
+                        if (!string.IsNullOrEmpty(runApp))
+                        {
+                            string exePath = Path.Combine(output, runApp);
+                            if (File.Exists(exePath))
+                            {
+                                WriteLog($"Running application: {exePath}");
+                                try
+                                {
+                                    Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+                                }
+                                catch (Exception ex)
+                                {
+                                    WriteLog($"Error launching application: {ex.Message}");
+                                }
+                            }
+                            else
+                            {
+                                WriteLog($"Application not found: {exePath}");
+                            }
+                        }
+
+                        if (deleteZip && File.Exists(input))
+                        {
+                            File.Delete(input);
+                            WriteLog($"Deleted ZIP file: {input}");
+                        }
                     }
-                    WriteLog($"Extraction completed to: {output}");
+                    catch (Exception ex)
+                    {
+                        WriteLog($"Extraction error: {ex.Message}");
+                    }
                 }
                 else
                 {
@@ -62,13 +109,20 @@ namespace Mega_Subtitles_Updater
                     ShowHelp();
                 }
             }
-            else if (compress) // Check if we need to compress files
+            else if (compress)
             {
                 if (Directory.Exists(input) && !string.IsNullOrEmpty(output))
                 {
                     WriteLog("Compressing...");
-                    ZipFile.CreateFromDirectory(input, output);
-                    WriteLog($"Compression completed to: {output}");
+                    try
+                    {
+                        ZipFile.CreateFromDirectory(input, output);
+                        WriteLog($"Compression completed to: {output}");
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLog($"Compression error: {ex.Message}");
+                    }
                 }
                 else
                 {
@@ -81,39 +135,31 @@ namespace Mega_Subtitles_Updater
                 WriteLog("No action specified.");
                 ShowHelp();
             }
-            Thread.Sleep(1000); // Delay
+
         }
 
-        static void ShowHelp() // Display help information
+        static void ShowHelp()
         {
-            string helpMessage = "Usage: Updater.exe [-e | -c | -d] -i <input> -o <output> [-r <runApp>]\n" +
-                              "Options:\n" +
-                              "  -e          Extract files from a ZIP archive\n" +
-                              "  -c          Compress a folder into a ZIP archive\n" +
-                              "  -d          Delete the ZIP file after extraction\n" +
-                              "  -i <input>  Specify input file or folder\n" +
-                              "  -o <output> Specify output file or folder\n" +
-                              "  -r <runApp> Run the specified application after extraction\n" +
-                              "  -? or --help Show this help message\n";
+            string helpMessage =
+@"Usage: Updater.exe [-e | -c] [-d] -i <input> -o <output> [-r <runApp>]
+Options:
+  -e           Extract files from a ZIP archive
+  -c           Compress a folder into a ZIP archive
+  -d           Delete the ZIP file after extraction
+  -i <input>   Specify input file or folder
+  -o <output>  Specify output file or folder
+  -r <runApp>  Run the specified application after extraction
+  -? --help    Show this help message";
+
             WriteLog(helpMessage);
         }
 
-        static void WriteLog(string message) // Log messages to the console
+        static void WriteLog(string message)
         {
-            string LogPath = AppDomain.CurrentDomain.BaseDirectory + "Logs.txt";
+            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs.txt");
+            string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}";
 
-            // Log messages to the console with a timestamp
-            string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}" + Environment.NewLine;
-            File.AppendAllText(LogPath, logMessage);
+            File.AppendAllText(logPath, logMessage);
         }
     }
-
 }
-// This code is a simple command-line utility for compressing and extracting files using ZIP format.
-
-
-
-
-
-
-
