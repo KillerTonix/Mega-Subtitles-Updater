@@ -117,6 +117,7 @@ namespace Mega_Subtitles_Updater
                     try
                     {
                         ZipFile.CreateFromDirectory(input, output);
+                        Thread.Sleep(800); // Delay
                         WriteLog($"Compression completed to: {output}");
                     }
                     catch (Exception ex)
